@@ -15,7 +15,7 @@ const Order = require("./models/order");
 // ================= MONGODB CONNECTION =================
 
 // 🔥 REPLACE WITH YOUR REAL USERNAME, PASSWORD & CLUSTER
-mongoose.connect("mongodb+srv://admin:shashank123456@cluster0.laefhww.mongodb.net/nutribliss?retryWrites=true&w=majority")
+mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log("MongoDB Atlas connected ✅"))
 .catch(err => console.log("DB error ❌", err));
 
@@ -23,8 +23,8 @@ mongoose.connect("mongodb+srv://admin:shashank123456@cluster0.laefhww.mongodb.ne
 // ================= RAZORPAY =================
 
 const razorpay = new Razorpay({
-    key_id: "rzp_test_SdHJXu7iVmjrLs",
-    key_secret: "h1AQ6qnZFmG3Y5re5yWcq65d"
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
 
