@@ -1,4 +1,3 @@
-const Order = require("./models/order");
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
@@ -9,19 +8,25 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ FIX MODEL NAME (make sure file is Product.js)
+// ✅ MODELS
 const Product = require("./models/Products");
+const Order = require("./models/order");
 
-// MongoDB Connection
-mongoose.connect("mongodb://127.0.0.1:27017/nutribliss")
-.then(() => console.log("MongoDB connected ✅"))
-.catch(err => console.log("MongoDB error ❌", err));
+// ================= MONGODB CONNECTION =================
 
-// ✅ Razorpay setup (STRINGS REQUIRED)
+// 🔥 REPLACE WITH YOUR REAL USERNAME, PASSWORD & CLUSTER
+mongoose.connect("mongodb+srv://admin:shashank123456@cluster0.laefhww.mongodb.net/nutribliss?retryWrites=true&w=majority")
+.then(() => console.log("MongoDB Atlas connected ✅"))
+.catch(err => console.log("DB error ❌", err));
+
+
+// ================= RAZORPAY =================
+
 const razorpay = new Razorpay({
     key_id: "rzp_test_SdHJXu7iVmjrLs",
     key_secret: "h1AQ6qnZFmG3Y5re5yWcq65d"
 });
+
 
 // ================= PRODUCTS APIs =================
 
@@ -64,6 +69,7 @@ app.put("/products/:id", async (req, res) => {
     res.json({ message: "Product updated successfully" });
 });
 
+
 // ================= PAYMENT API =================
 
 app.post("/create-order", async (req, res) => {
@@ -71,7 +77,7 @@ app.post("/create-order", async (req, res) => {
         const { amount } = req.body;
 
         const options = {
-            amount: amount * 100, // convert to paise
+            amount: amount * 100,
             currency: "INR",
             receipt: "order_rcptid_11"
         };
@@ -85,6 +91,9 @@ app.post("/create-order", async (req, res) => {
     }
 });
 
+
+// ================= SAVE ORDER =================
+
 app.post("/save-order", async (req, res) => {
     try {
         const { name, address, phone, cart, total, paymentId } = req.body;
@@ -95,7 +104,8 @@ app.post("/save-order", async (req, res) => {
             phone,
             items: cart,
             total,
-            paymentId
+            paymentId,
+            status: "Pending"
         });
 
         await newOrder.save();
@@ -103,22 +113,21 @@ app.post("/save-order", async (req, res) => {
         res.json({ message: "Order saved successfully" });
 
     } catch (err) {
+        console.log(err);
         res.status(500).json({ error: "Failed to save order" });
     }
 });
 
-// ================= ROOT =================
 
-app.get("/", (req, res) => {
-    res.send("Server is running 🚀");
-});
-
-// ================= SERVER =================
+// ================= GET ORDERS =================
 
 app.get("/orders", async (req, res) => {
     const orders = await Order.find().sort({ date: -1 });
     res.json(orders);
 });
+
+
+// ================= UPDATE STATUS =================
 
 app.put("/orders/:id", async (req, res) => {
     const { status } = req.body;
@@ -127,6 +136,16 @@ app.put("/orders/:id", async (req, res) => {
 
     res.json({ message: "Status updated" });
 });
+
+
+// ================= ROOT =================
+
+app.get("/", (req, res) => {
+    res.send("Server is running 🚀");
+});
+
+
+// ================= SERVER =================
 
 const PORT = process.env.PORT || 3000;
 
