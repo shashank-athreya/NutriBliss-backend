@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
 const Razorpay = require("razorpay");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
@@ -25,6 +26,33 @@ mongoose.connect(process.env.MONGO_URI)
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET
+});
+
+// ================= ADMIN LOGIN API =================
+
+app.post("/admin-login", (req, res) => {
+    const { username, password } = req.body;
+
+    if (
+        username === process.env.ADMIN_USERNAME &&
+        password === process.env.ADMIN_PASSWORD
+    ) {
+        const token = jwt.sign(
+            { role: "admin" },
+            process.env.JWT_SECRET,
+            { expiresIn: "1d" }
+        );
+
+        return res.json({
+            success: true,
+            token
+        });
+    }
+
+    res.status(401).json({
+        success: false,
+        message: "Invalid admin credentials"
+    });
 });
 
 // ================= PRODUCTS APIs =================
