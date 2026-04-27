@@ -151,6 +151,25 @@ app.get("/orders", async (req, res) => {
     }
 });
 
+// ================= TRACK ORDER BY PHONE =================
+
+app.get("/track-order/:phone", async (req, res) => {
+    try {
+        const phone = req.params.phone;
+
+        const orders = await Order.find({ phone }).sort({ date: -1 });
+
+        if (orders.length === 0) {
+            return res.status(404).json({ message: "No orders found" });
+        }
+
+        res.json(orders);
+
+    } catch (err) {
+        res.status(500).json({ error: "Failed to track order" });
+    }
+});
+
 // ================= UPDATE STATUS =================
 
 app.put("/orders/:id", async (req, res) => {
