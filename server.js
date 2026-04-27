@@ -19,7 +19,7 @@ mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log("MongoDB Atlas connected ✅"))
 .catch(err => {
     console.log("DB error ❌", err);
-    process.exit(1); // stop server if DB fails
+    process.exit(1);
 });
 
 // ================= RAZORPAY =================
@@ -29,17 +29,19 @@ const razorpay = new Razorpay({
 });
 
 // ================= ADMIN LOGIN API =================
-
 app.post("/admin-login", (req, res) => {
     const { username, password } = req.body;
 
-    if (
-        username === process.env.ADMIN_USERNAME &&
-        password === process.env.ADMIN_PASSWORD
-    ) {
+    const inputUsername = username?.trim();
+    const inputPassword = password?.trim();
+
+    const adminUsername = process.env.ADMIN_USERNAME?.trim();
+    const adminPassword = process.env.ADMIN_PASSWORD?.trim();
+
+    if (inputUsername === adminUsername && inputPassword === adminPassword) {
         const token = jwt.sign(
             { role: "admin" },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || "fallback_secret",
             { expiresIn: "1d" }
         );
 
@@ -55,9 +57,17 @@ app.post("/admin-login", (req, res) => {
     });
 });
 
-// ================= PRODUCTS APIs =================
+// TEMP TEST ROUTE
+app.get("/test-admin-env", (req, res) => {
+    res.json({
+        adminUsernameExists: !!process.env.ADMIN_USERNAME,
+        adminPasswordExists: !!process.env.ADMIN_PASSWORD,
+        jwtSecretExists: !!process.env.JWT_SECRET,
+        adminUsername: process.env.ADMIN_USERNAME
+    });
+});
 
-// Get all products
+// ================= PRODUCTS APIs =================
 app.get("/products", async (req, res) => {
     try {
         const products = await Product.find();
@@ -67,7 +77,6 @@ app.get("/products", async (req, res) => {
     }
 });
 
-// Add product
 app.post("/products", async (req, res) => {
     try {
         const { name, price, image } = req.body;
@@ -86,7 +95,6 @@ app.post("/products", async (req, res) => {
     }
 });
 
-// Delete product
 app.delete("/products/:id", async (req, res) => {
     try {
         await Product.findByIdAndDelete(req.params.id);
@@ -97,7 +105,6 @@ app.delete("/products/:id", async (req, res) => {
     }
 });
 
-// Update product
 app.put("/products/:id", async (req, res) => {
     try {
         const { name, price, image } = req.body;
@@ -116,7 +123,6 @@ app.put("/products/:id", async (req, res) => {
 });
 
 // ================= PAYMENT API =================
-
 app.post("/create-order", async (req, res) => {
     try {
         const { amount } = req.body;
@@ -126,7 +132,7 @@ app.post("/create-order", async (req, res) => {
         }
 
         const options = {
-            amount: amount * 100, // paise
+            amount: amount * 100,
             currency: "INR",
             receipt: "receipt_" + Date.now()
         };
@@ -141,7 +147,6 @@ app.post("/create-order", async (req, res) => {
 });
 
 // ================= SAVE ORDER =================
-
 app.post("/save-order", async (req, res) => {
     try {
         const { name, address, phone, cart, total, paymentId } = req.body;
@@ -168,7 +173,6 @@ app.post("/save-order", async (req, res) => {
 });
 
 // ================= GET ORDERS =================
-
 app.get("/orders", async (req, res) => {
     try {
         const orders = await Order.find().sort({ date: -1 });
@@ -180,7 +184,6 @@ app.get("/orders", async (req, res) => {
 });
 
 // ================= TRACK ORDER BY PHONE =================
-
 app.get("/track-order/:phone", async (req, res) => {
     try {
         const phone = req.params.phone;
@@ -199,7 +202,6 @@ app.get("/track-order/:phone", async (req, res) => {
 });
 
 // ================= UPDATE STATUS =================
-
 app.put("/orders/:id", async (req, res) => {
     try {
         const { status } = req.body;
@@ -214,13 +216,11 @@ app.put("/orders/:id", async (req, res) => {
 });
 
 // ================= ROOT =================
-
 app.get("/", (req, res) => {
     res.send("Server is running 🚀");
 });
 
 // ================= SERVER =================
-
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
