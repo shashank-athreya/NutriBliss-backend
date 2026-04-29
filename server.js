@@ -41,7 +41,7 @@ app.post("/admin-login", (req, res) => {
     if (inputUsername === adminUsername && inputPassword === adminPassword) {
         const token = jwt.sign(
             { role: "admin" },
-            process.env.JWT_SECRET || "fallback_secret",
+            process.env.JWT_SECRET,
             { expiresIn: "1d" }
         );
 
@@ -57,17 +57,32 @@ app.post("/admin-login", (req, res) => {
     });
 });
 
-// TEMP TEST ROUTE
-app.get("/test-admin-env", (req, res) => {
-    res.json({
-        adminUsernameExists: !!process.env.ADMIN_USERNAME,
-        adminPasswordExists: !!process.env.ADMIN_PASSWORD,
-        jwtSecretExists: !!process.env.JWT_SECRET,
-        adminUsername: process.env.ADMIN_USERNAME
-    });
-});
+// ================= ADMIN AUTH MIDDLEWARE =================
+function verifyAdmin(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ message: "No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        if (decoded.role !== "admin") {
+            return res.status(403).json({ message: "Admin access denied" });
+        }
+
+        next();
+    } catch (err) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
+}
 
 // ================= PRODUCTS APIs =================
+
+// Public: get products
 app.get("/products", async (req, res) => {
     try {
         const products = await Product.find();
@@ -77,7 +92,8 @@ app.get("/products", async (req, res) => {
     }
 });
 
-app.post("/products", async (req, res) => {
+// Protected: add product
+app.post("/products", verifyAdmin, async (req, res) => {
     try {
         const { name, price, image } = req.body;
 
@@ -95,7 +111,8 @@ app.post("/products", async (req, res) => {
     }
 });
 
-app.delete("/products/:id", async (req, res) => {
+// Protected: delete product
+app.delete("/products/:id", verifyAdmin, async (req, res) => {
     try {
         await Product.findByIdAndDelete(req.params.id);
         res.json({ message: "Deleted successfully" });
@@ -105,7 +122,8 @@ app.delete("/products/:id", async (req, res) => {
     }
 });
 
-app.put("/products/:id", async (req, res) => {
+// Protected: update product
+app.put("/products/:id", verifyAdmin, async (req, res) => {
     try {
         const { name, price, image } = req.body;
 
@@ -173,7 +191,8 @@ app.post("/save-order", async (req, res) => {
 });
 
 // ================= GET ORDERS =================
-app.get("/orders", async (req, res) => {
+// Protected: admin only
+app.get("/orders", verifyAdmin, async (req, res) => {
     try {
         const orders = await Order.find().sort({ date: -1 });
         res.json(orders);
@@ -184,6 +203,7 @@ app.get("/orders", async (req, res) => {
 });
 
 // ================= TRACK ORDER BY PHONE =================
+// Public: customer tracking
 app.get("/track-order/:phone", async (req, res) => {
     try {
         const phone = req.params.phone;
@@ -202,7 +222,8 @@ app.get("/track-order/:phone", async (req, res) => {
 });
 
 // ================= UPDATE STATUS =================
-app.put("/orders/:id", async (req, res) => {
+// Protected: admin only
+app.put("/orders/:id", verifyAdmin, async (req, res) => {
     try {
         const { status } = req.body;
 
