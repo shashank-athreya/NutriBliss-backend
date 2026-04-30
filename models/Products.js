@@ -5,11 +5,15 @@ const productSchema = new mongoose.Schema({
     price: Number,
     image: String,
 
-    // ✅ NEW FIELD
     category: {
         type: String,
         enum: ["Cashew", "Almond", "Pistachio", "Walnut", "Mixed"],
         default: "Mixed"
+    },
+
+    stock: {
+        type: Number,
+        default: 10
     }
 });
 
