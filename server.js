@@ -82,7 +82,6 @@ function verifyAdmin(req, res, next) {
 
 // ================= PRODUCTS APIs =================
 
-// Public: get products
 app.get("/products", async (req, res) => {
     try {
         const products = await Product.find();
@@ -92,26 +91,26 @@ app.get("/products", async (req, res) => {
     }
 });
 
-// Protected: add product
 app.post("/products", verifyAdmin, async (req, res) => {
     try {
-        const { name, price, image } = req.body;
+        const { name, price, image, category } = req.body;
 
         const product = new Product({
             name,
             price,
-            image: image || "https://via.placeholder.com/200"
+            image: image || "https://via.placeholder.com/200",
+            category: category || "Mixed"
         });
 
         await product.save();
         res.json({ message: "Product added successfully" });
 
     } catch (err) {
+        console.log("Add product error:", err);
         res.status(500).json({ error: "Failed to add product" });
     }
 });
 
-// Protected: delete product
 app.delete("/products/:id", verifyAdmin, async (req, res) => {
     try {
         await Product.findByIdAndDelete(req.params.id);
@@ -122,20 +121,21 @@ app.delete("/products/:id", verifyAdmin, async (req, res) => {
     }
 });
 
-// Protected: update product
 app.put("/products/:id", verifyAdmin, async (req, res) => {
     try {
-        const { name, price, image } = req.body;
+        const { name, price, image, category } = req.body;
 
         await Product.findByIdAndUpdate(req.params.id, {
             name,
             price,
-            image
+            image,
+            category: category || "Mixed"
         });
 
         res.json({ message: "Product updated successfully" });
 
     } catch (err) {
+        console.log("Update product error:", err);
         res.status(500).json({ error: "Update failed" });
     }
 });
@@ -191,7 +191,6 @@ app.post("/save-order", async (req, res) => {
 });
 
 // ================= GET ORDERS =================
-// Protected: admin only
 app.get("/orders", verifyAdmin, async (req, res) => {
     try {
         const orders = await Order.find().sort({ date: -1 });
@@ -203,7 +202,6 @@ app.get("/orders", verifyAdmin, async (req, res) => {
 });
 
 // ================= TRACK ORDER BY PHONE =================
-// Public: customer tracking
 app.get("/track-order/:phone", async (req, res) => {
     try {
         const phone = req.params.phone;
@@ -222,7 +220,6 @@ app.get("/track-order/:phone", async (req, res) => {
 });
 
 // ================= UPDATE STATUS =================
-// Protected: admin only
 app.put("/orders/:id", verifyAdmin, async (req, res) => {
     try {
         const { status } = req.body;
