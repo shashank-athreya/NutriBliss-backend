@@ -45,10 +45,7 @@ app.post("/admin-login", (req, res) => {
             { expiresIn: "1d" }
         );
 
-        return res.json({
-            success: true,
-            token
-        });
+        return res.json({ success: true, token });
     }
 
     res.status(401).json({
@@ -81,7 +78,6 @@ function verifyAdmin(req, res, next) {
 }
 
 // ================= PRODUCTS APIs =================
-
 app.get("/products", async (req, res) => {
     try {
         const products = await Product.find();
@@ -100,7 +96,7 @@ app.post("/products", verifyAdmin, async (req, res) => {
             price,
             image: image || "https://via.placeholder.com/200",
             category: category || "Mixed",
-            stock: stock || 10
+            stock: Number(stock) || 10
         });
 
         await product.save();
@@ -131,7 +127,7 @@ app.put("/products/:id", verifyAdmin, async (req, res) => {
             price,
             image,
             category: category || "Mixed",
-            stock: stock || 10
+            stock: Number(stock) || 0
         });
 
         res.json({ message: "Product updated successfully" });
@@ -166,10 +162,29 @@ app.post("/create-order", async (req, res) => {
     }
 });
 
-// ================= SAVE ORDER =================
+// ================= SAVE ORDER + REDUCE STOCK =================
 app.post("/save-order", async (req, res) => {
     try {
         const { name, address, phone, cart, total, paymentId } = req.body;
+
+        if (!cart || cart.length === 0) {
+            return res.status(400).json({ error: "Cart is empty" });
+        }
+
+        // Check stock first
+        for (const item of cart) {
+            const product = await Product.findById(item.id);
+
+            if (!product) {
+                return res.status(404).json({ error: `${item.name} not found` });
+            }
+
+            if (product.stock < item.quantity) {
+                return res.status(400).json({
+                    error: `${product.name} has only ${product.stock} left`
+                });
+            }
+        }
 
         const newOrder = new Order({
             name,
@@ -184,10 +199,17 @@ app.post("/save-order", async (req, res) => {
 
         await newOrder.save();
 
+        // Reduce stock after order saved
+        for (const item of cart) {
+            await Product.findByIdAndUpdate(item.id, {
+                $inc: { stock: -Number(item.quantity) }
+            });
+        }
+
         res.json({ message: "Order saved successfully" });
 
     } catch (err) {
-        console.log(err);
+        console.log("Save order error:", err);
         res.status(500).json({ error: "Failed to save order" });
     }
 });
