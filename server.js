@@ -243,16 +243,44 @@ app.get("/track-order/:phone", async (req, res) => {
     }
 });
 
-// ================= UPDATE STATUS =================
+// ================= UPDATE STATUS + RESTORE STOCK IF CANCELLED =================
 app.put("/orders/:id", verifyAdmin, async (req, res) => {
     try {
         const { status } = req.body;
 
-        await Order.findByIdAndUpdate(req.params.id, { status });
+        const order = await Order.findById(req.params.id);
+
+        if (!order) {
+            return res.status(404).json({ error: "Order not found" });
+        }
+
+        const oldStatus = order.status;
+
+        // Restore stock only when changing from non-cancelled to Cancelled
+        if (oldStatus !== "Cancelled" && status === "Cancelled") {
+            for (const item of order.items) {
+                await Product.findByIdAndUpdate(item.id, {
+                    $inc: { stock: Number(item.quantity) }
+                });
+            }
+        }
+
+        // Reduce stock again if cancelled order is changed back to active
+        if (oldStatus === "Cancelled" && status !== "Cancelled") {
+            for (const item of order.items) {
+                await Product.findByIdAndUpdate(item.id, {
+                    $inc: { stock: -Number(item.quantity) }
+                });
+            }
+        }
+
+        order.status = status;
+        await order.save();
 
         res.json({ message: "Status updated" });
 
     } catch (err) {
+        console.log("Status update error:", err);
         res.status(500).json({ error: "Status update failed" });
     }
 });
