@@ -93,13 +93,14 @@ app.get("/products", async (req, res) => {
 
 app.post("/products", verifyAdmin, async (req, res) => {
     try {
-        const { name, price, image, category } = req.body;
+        const { name, price, image, category, stock } = req.body;
 
         const product = new Product({
             name,
             price,
             image: image || "https://via.placeholder.com/200",
-            category: category || "Mixed"
+            category: category || "Mixed",
+            stock: stock || 10
         });
 
         await product.save();
@@ -123,13 +124,14 @@ app.delete("/products/:id", verifyAdmin, async (req, res) => {
 
 app.put("/products/:id", verifyAdmin, async (req, res) => {
     try {
-        const { name, price, image, category } = req.body;
+        const { name, price, image, category, stock } = req.body;
 
         await Product.findByIdAndUpdate(req.params.id, {
             name,
             price,
             image,
-            category: category || "Mixed"
+            category: category || "Mixed",
+            stock: stock || 10
         });
 
         res.json({ message: "Product updated successfully" });
