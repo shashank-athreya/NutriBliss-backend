@@ -245,24 +245,52 @@ app.get("/track-order/:phone", async (req, res) => {
 });
 
 app.put("/orders/:id", verifyAdmin, async (req, res) => {
-    const { status } = req.body;
+    try {
+        const { status } = req.body;
 
-    const order = await Order.findById(req.params.id);
+        const order = await Order.findById(req.params.id);
 
-    if (!order) return res.status(404).json({ error: "Not found" });
-
-    if (order.status !== "Cancelled" && status === "Cancelled") {
-        for (const item of order.items) {
-            await Product.findByIdAndUpdate(item.id, {
-                $inc: { stock: item.quantity }
-            });
+        if (!order) {
+            return res.status(404).json({ error: "Order not found" });
         }
+
+        const oldStatus = order.status;
+
+        // Restore stock when order is cancelled
+        if (oldStatus !== "Cancelled" && status === "Cancelled") {
+            for (const item of order.items) {
+                const productId = item.id || item._id;
+
+                if (productId) {
+                    await Product.findByIdAndUpdate(productId, {
+                        $inc: { stock: Number(item.quantity) }
+                    });
+                }
+            }
+        }
+
+        // Reduce stock again if cancelled order is reactivated
+        if (oldStatus === "Cancelled" && status !== "Cancelled") {
+            for (const item of order.items) {
+                const productId = item.id || item._id;
+
+                if (productId) {
+                    await Product.findByIdAndUpdate(productId, {
+                        $inc: { stock: -Number(item.quantity) }
+                    });
+                }
+            }
+        }
+
+        order.status = status;
+        await order.save();
+
+        res.json({ message: "Status updated" });
+
+    } catch (err) {
+        console.log("Status update error:", err);
+        res.status(500).json({ error: "Status update failed" });
     }
-
-    order.status = status;
-    await order.save();
-
-    res.json({ message: "Updated" });
 });
 
 // ================= SERVER =================
