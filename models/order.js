@@ -7,10 +7,16 @@ const orderSchema = new mongoose.Schema({
     items: Array,
     total: Number,
     paymentId: String,
-    
+    coupon: String,
+
     status: {
         type: String,
         default: "Pending"
+    },
+
+    note: {
+        type: String,
+        default: ""
     },
 
     date: {
