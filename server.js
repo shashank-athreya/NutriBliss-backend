@@ -322,13 +322,7 @@ app.get("/track-order/:phone", async (req, res) => {
 
 app.put("/orders/:id", verifyAdmin, async (req, res) => {
     try {
-        const { status } = req.body;
-
-        const validStatuses = ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
-
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ error: "Invalid order status" });
-        }
+        const { status, note } = req.body;
 
         const order = await Order.findById(req.params.id);
 
@@ -338,37 +332,36 @@ app.put("/orders/:id", verifyAdmin, async (req, res) => {
 
         const oldStatus = order.status;
 
+        // Restore stock when cancelled
         if (oldStatus !== "Cancelled" && status === "Cancelled") {
             for (const item of order.items) {
-                const productId = item.id || item._id;
-
-                if (productId) {
-                    await Product.findByIdAndUpdate(productId, {
-                        $inc: { stock: Number(item.quantity) }
-                    });
-                }
+                await Product.findByIdAndUpdate(item.id, {
+                    $inc: { stock: item.quantity }
+                });
             }
         }
 
+        // Reduce stock if reactivated
         if (oldStatus === "Cancelled" && status !== "Cancelled") {
             for (const item of order.items) {
-                const productId = item.id || item._id;
-
-                if (productId) {
-                    await Product.findByIdAndUpdate(productId, {
-                        $inc: { stock: -Number(item.quantity) }
-                    });
-                }
+                await Product.findByIdAndUpdate(item.id, {
+                    $inc: { stock: -item.quantity }
+                });
             }
         }
 
         order.status = status;
+        if (note !== undefined) {
+            order.note = note;
+        }
+
         await order.save();
 
-        res.json({ message: "Status updated successfully" });
+        res.json({ message: "Order updated successfully" });
 
-    } catch {
-        res.status(500).json({ error: "Status update failed" });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: "Update failed" });
     }
 });
 
