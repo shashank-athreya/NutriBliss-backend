@@ -252,7 +252,10 @@ app.post("/save-order", orderLimiter, async (req, res) => {
             });
         }
 
-        const finalTotal = paymentId === "COD" ? serverTotal + 30 : serverTotal;
+            let deliveryCharge = serverTotal >= 999 ? 0 : 50;
+            let codCharge = paymentId === "COD" ? 30 : 0;
+
+            const finalTotal = serverTotal + deliveryCharge + codCharge;
 
         if (Number(total) !== Number(finalTotal)) {
             return res.status(400).json({ error: "Order total mismatch" });
