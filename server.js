@@ -204,14 +204,15 @@ app.post("/create-order", orderLimiter, async (req, res) => {
 // ================= SAVE ORDER =================
 app.post("/save-order", orderLimiter, async (req, res) => {
     try {
-        const { name, address, phone, cart, total, paymentId } = req.body;
+        const { name, address, phone, cart, total, paymentId, coupon } = req.body;
 
+        // VALIDATION
         if (!name || !address || !phone) {
-            return res.status(400).json({ error: "Name, address and phone are required" });
+            return res.status(400).json({ error: "Invalid details" });
         }
 
-        if (!/^[6-9]\d{9}$/.test(String(phone))) {
-            return res.status(400).json({ error: "Invalid phone number" });
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+            return res.status(400).json({ error: "Invalid phone" });
         }
 
         if (!Array.isArray(cart) || cart.length === 0) {
@@ -219,69 +220,73 @@ app.post("/save-order", orderLimiter, async (req, res) => {
         }
 
         let serverTotal = 0;
-        const cleanItems = [];
 
+        // STOCK CHECK + PRICE CALCULATION
         for (const item of cart) {
-            const productId = item.id || item._id;
-
-            if (!productId || Number(item.quantity) <= 0) {
-                return res.status(400).json({ error: "Invalid product in cart" });
-            }
-
-            const product = await Product.findById(productId);
+            const product = await Product.findById(item.id);
 
             if (!product) {
                 return res.status(404).json({ error: "Product not found" });
             }
 
-            if (Number(product.stock) < Number(item.quantity)) {
+            if (product.stock < item.quantity) {
                 return res.status(400).json({
                     error: `${product.name} has only ${product.stock} left`
                 });
             }
 
-            serverTotal += Number(product.price) * Number(item.quantity);
-
-            cleanItems.push({
-                id: product._id.toString(),
-                name: product.name,
-                price: product.price,
-                image: product.image,
-                category: product.category,
-                quantity: Number(item.quantity)
-            });
+            serverTotal += product.price * item.quantity;
         }
 
-            let deliveryCharge = serverTotal >= 999 ? 0 : 50;
-            let codCharge = paymentId === "COD" ? 30 : 0;
+        // DELIVERY
+        let deliveryCharge = serverTotal >= 999 ? 0 : 50;
 
-            const finalTotal = serverTotal + deliveryCharge + codCharge;
+        // COUPON
+        let discount = 0;
 
-        if (Number(total) !== Number(finalTotal)) {
-            return res.status(400).json({ error: "Order total mismatch" });
+        if (coupon === "NUTRI10") {
+            discount = Math.floor(serverTotal * 0.10);
         }
 
-        await Order.create({
-            name: name.trim(),
-            address: address.trim(),
-            phone: String(phone).trim(),
-            items: cleanItems,
+        if (coupon === "SAVE50") {
+            discount = serverTotal >= 50 ? 50 : 0;
+        }
+
+        // COD
+        let codCharge = paymentId === "COD" ? 30 : 0;
+
+        const finalTotal = serverTotal + deliveryCharge + codCharge - discount;
+
+        // SECURITY CHECK
+        if (Number(total) !== finalTotal) {
+            return res.status(400).json({ error: "Price mismatch detected" });
+        }
+
+        // SAVE ORDER
+        const order = await Order.create({
+            name,
+            address,
+            phone,
+            items: cart,
             total: finalTotal,
             paymentId,
+            coupon: coupon || "",
             status: "Pending",
             date: new Date()
         });
 
-        for (const item of cleanItems) {
+        // REDUCE STOCK
+        for (const item of cart) {
             await Product.findByIdAndUpdate(item.id, {
-                $inc: { stock: -Number(item.quantity) }
+                $inc: { stock: -item.quantity }
             });
         }
 
         res.json({ message: "Order placed successfully" });
 
-    } catch {
-        res.status(500).json({ error: "Failed to save order" });
+    } catch (err) {
+        console.log("Order error:", err);
+        res.status(500).json({ error: "Failed to place order" });
     }
 });
 
